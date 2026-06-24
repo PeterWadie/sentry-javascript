@@ -19,6 +19,9 @@ export {
   vercelAiChannelIntegration,
 };
 export type { IORedisChannelIntegrationOptions, IORedisResponseHook } from '../integrations/tracing-channel/ioredis';
+// Not part of `channelIntegrations` below: `Nest` isn't a `@sentry/node` default integration (it's added
+// by the standalone `@sentry/nestjs` SDK), so it's not swapped via the generic default-integration path.
+export { nestjsChannelIntegration } from '../integrations/tracing-channel/nestjs';
 
 /**
  * The canonical set of orchestrion diagnostics-channel integrations, keyed by their public
