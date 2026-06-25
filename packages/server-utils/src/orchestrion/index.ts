@@ -4,6 +4,7 @@ import { ioredisChannelIntegration } from '../integrations/tracing-channel/iored
 import { lruMemoizerChannelIntegration } from '../integrations/tracing-channel/lru-memoizer';
 import { mysqlChannelIntegration } from '../integrations/tracing-channel/mysql';
 import { openaiChannelIntegration } from '../integrations/tracing-channel/openai';
+import { nestjsChannelIntegration } from '../integrations/tracing-channel/nestjs';
 import { postgresChannelIntegration } from '../integrations/tracing-channel/postgres';
 import { vercelAiChannelIntegration } from '../integrations/tracing-channel/vercel-ai';
 
@@ -17,11 +18,9 @@ export {
   openaiChannelIntegration,
   postgresChannelIntegration,
   vercelAiChannelIntegration,
+  nestjsChannelIntegration,
 };
 export type { IORedisChannelIntegrationOptions, IORedisResponseHook } from '../integrations/tracing-channel/ioredis';
-// Not part of `channelIntegrations` below: `Nest` isn't a `@sentry/node` default integration (it's added
-// by the standalone `@sentry/nestjs` SDK), so it's not swapped via the generic default-integration path.
-export { nestjsChannelIntegration } from '../integrations/tracing-channel/nestjs';
 
 /**
  * The canonical set of orchestrion diagnostics-channel integrations, keyed by their public
@@ -35,6 +34,10 @@ export { nestjsChannelIntegration } from '../integrations/tracing-channel/nestjs
  * NOTE: `ioredisChannelIntegration` is intentionally NOT here. It only partially replaces the
  * composite OTel `Redis` integration and needs the node SDK's redis cache `responseHook` (which
  * can't live in `server-utils`), so `@sentry/node` wires it up separately.
+ *
+ * `Nest` is included even though it isn't a `@sentry/node` default integration: the swap runs in the Node
+ * SDK's `_init` over the *final* `defaultIntegrations`, so it also replaces the OTel `Nest` that
+ * `@sentry/nestjs` prepends to its own defaults.
  */
 export const channelIntegrations = {
   postgresIntegration: postgresChannelIntegration,
@@ -44,4 +47,5 @@ export const channelIntegrations = {
   anthropicIntegration: anthropicChannelIntegration,
   vercelAiIntegration: vercelAiChannelIntegration,
   hapiIntegration: hapiChannelIntegration,
+  nestIntegration: nestjsChannelIntegration,
 } as const;
