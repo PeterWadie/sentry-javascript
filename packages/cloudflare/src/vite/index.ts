@@ -4,19 +4,37 @@
 // The CJS rollup variant still emits this file, but `package.json` doesn't
 // expose it — same setup as `@sentry/server-utils/orchestrion/vite` itself.
 import { sentryOrchestrionPlugin } from '@sentry/server-utils/orchestrion/vite';
+import { sentryCloudflareAutoInstrumentPlugin, type SentryCloudflareAutoInstrumentOptions } from './autoInstrument';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type UnknownPlugin = any;
 
 /**
  * Sentry Vite plugin for Cloudflare Workers.
  *
- * Injects `diagnostics_channel.tracingChannel` calls into bundled npm packages
- * (e.g. `mysql`) at build time via orchestrion, so the SDK can trace them
- * without monkey-patching, which wouldn't work in workerd anyway.
+ * Combines two build-time transforms:
  *
- * It also injects the `@sentry/cloudflare/orchestrion` registration module
- * into the bundle, which registers the matching channel-subscriber
- * integrations for `Sentry.init` to pick up. The SDK itself doesn't import
- * them, so workers built without this plugin don't ship that code; the worker
- * only needs the usual `Sentry.withSentry` wrapping.
+ * 1. **Orchestrion** — injects `diagnostics_channel.tracingChannel` calls into
+ *    bundled npm packages (e.g. `mysql`) so the SDK can trace them without
+ *    monkey-patching, which wouldn't work in workerd anyway. It also injects
+ *    the `@sentry/cloudflare/orchestrion` registration module into modules that
+ *    import `@sentry/cloudflare`, registering the matching channel-subscriber
+ *    integrations for `Sentry.init` to pick up. The SDK doesn't import them, so
+ *    workers built without this plugin don't ship that code.
+ *
+ * 2. **Auto-instrument** — reads `wrangler.{json,jsonc,toml}`, finds the worker
+ *    entry file and Durable Object class names, then wraps the default export
+ *    with `withSentry` and DO classes with `instrumentDurableObjectWithSentry`
+ *    automatically. No manual Sentry wrapping required in user code.
+ *
+ *    To configure the SDK, place an `instrument.server.{ts,js,mjs}` file next
+ *    to the worker entry whose default export is your options callback. It is
+ *    picked up automatically. Without it, the SDK reads its configuration (DSN,
+ *    release, environment, …) from the worker's `env` at runtime.
+ *
+ * Returns a Vite plugin preset (an array of plugins). Add it to `plugins`
+ * directly — Vite flattens nested plugin arrays, so there is no need to spread
+ * it with `...`.
  *
  * @example
  * ```ts
@@ -31,22 +49,19 @@ import { sentryOrchestrionPlugin } from '@sentry/server-utils/orchestrion/vite';
  *   ],
  * };
  *
- * // src/index.ts (worker entry)
- * import * as Sentry from '@sentry/cloudflare';
- *
- * export default Sentry.withSentry(
- *   env => ({
- *     dsn: env.SENTRY_DSN,
- *     tracesSampleRate: 1.0,
- *   }),
- *   {
- *     async fetch(request, env, ctx) {
- *       // ...
- *     },
- *   } satisfies ExportedHandler,
- * );
+ * // src/instrument.server.ts (next to the worker entry — auto-detected)
+ * import { defineCloudflareOptions } from '@sentry/cloudflare';
+ * export default defineCloudflareOptions(env => ({
+ *   dsn: env.SENTRY_DSN,
+ *   tracesSampleRate: 1.0,
+ * }));
  * ```
  */
-export function sentryCloudflareVitePlugin() {
-  return sentryOrchestrionPlugin({ registrationModule: '@sentry/cloudflare/orchestrion' });
+export function sentryCloudflareVitePlugin(pluginOptions?: SentryCloudflareAutoInstrumentOptions): UnknownPlugin[] {
+  return [
+    ...sentryOrchestrionPlugin({ registrationModule: '@sentry/cloudflare/orchestrion' }),
+    sentryCloudflareAutoInstrumentPlugin(pluginOptions),
+  ];
 }
+
+export type { SentryCloudflareAutoInstrumentOptions };
