@@ -13,6 +13,7 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type UnknownPlugin = any;
 
+import codeTransformerEsbuild from '@apm-js-collab/code-transformer-bundler-plugins/esbuild';
 import codeTransformer from '@apm-js-collab/code-transformer-bundler-plugins/vite';
 import MagicString from 'magic-string';
 import { INSTRUMENTED_MODULE_NAMES, SENTRY_INSTRUMENTATIONS } from '../config';
@@ -56,7 +57,10 @@ export interface SentryOrchestrionPluginOptions {
  *      to the runtime).
  *      Also injects every instrumented package name into `ssr.noExternal` via
  *      the `config` hook, since externalized deps are `require()`d at runtime
- *      from `node_modules` and never pass through the transform.
+ *      from `node_modules` and never pass through the transform. And it hooks
+ *      the esbuild dep optimizer of non-client environments via
+ *      `configEnvironment`, so dev-mode dependency pre-bundling (which
+ *      bypasses the `transform` hook) also injects the channels.
  *   2. `sentry-orchestrion-register-integrations` (only with
  *      `options.registrationModule`) — injects the given registration module
  *      into server modules that import the SDK, see
@@ -138,6 +142,25 @@ function bundlerMarkerPlugin(): UnknownPlugin {
       // `noExternal` entries with the user's config, so we don't overwrite
       // their additions.
       return { ssr: { noExternal: INSTRUMENTED_MODULE_NAMES } };
+    },
+    configEnvironment(name: string): unknown {
+      if (name === 'client') return undefined;
+      // In dev, environments that pre-bundle their dependencies (e.g.
+      // `@cloudflare/vite-plugin` worker environments set
+      // `optimizeDeps.noDiscovery: false`) load instrumented packages through
+      // esbuild's dep optimizer, which bypasses the `transform` hook above —
+      // the channels would silently never be injected in `vite dev`. Register
+      // the esbuild flavor of the code transformer there too: Vite runs user
+      // esbuild plugins before its own dep plugin, and the transformer returns
+      // null for everything but the instrumented files, so it composes with
+      // Vite's loader. Environments without dep optimization ignore this.
+      return {
+        optimizeDeps: {
+          esbuildOptions: {
+            plugins: [codeTransformerEsbuild({ instrumentations: SENTRY_INSTRUMENTATIONS })],
+          },
+        },
+      };
     },
     renderChunk(code: string, chunk: { isEntry: boolean }): { code: string; map: unknown } | null {
       if (!chunk.isEntry) return null;
