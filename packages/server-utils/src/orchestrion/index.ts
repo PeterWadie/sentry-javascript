@@ -1,6 +1,7 @@
 import { anthropicChannelIntegration } from '../integrations/tracing-channel/anthropic';
 import { hapiChannelIntegration } from '../integrations/tracing-channel/hapi';
 import { ioredisChannelIntegration } from '../integrations/tracing-channel/ioredis';
+import { kafkajsChannelIntegration } from '../integrations/tracing-channel/kafkajs';
 import { lruMemoizerChannelIntegration } from '../integrations/tracing-channel/lru-memoizer';
 import { mysqlChannelIntegration } from '../integrations/tracing-channel/mysql';
 import { openaiChannelIntegration } from '../integrations/tracing-channel/openai';
@@ -12,6 +13,7 @@ export {
   anthropicChannelIntegration,
   hapiChannelIntegration,
   ioredisChannelIntegration,
+  kafkajsChannelIntegration,
   lruMemoizerChannelIntegration,
   mysqlChannelIntegration,
   openaiChannelIntegration,
@@ -41,4 +43,5 @@ export const channelIntegrations = {
   anthropicIntegration: anthropicChannelIntegration,
   vercelAiIntegration: vercelAiChannelIntegration,
   hapiIntegration: hapiChannelIntegration,
+  kafkajsIntegration: kafkajsChannelIntegration,
 } as const;
