@@ -12,7 +12,7 @@ import {
   SEMANTIC_ATTRIBUTE_SENTRY_SEGMENT_NAME,
   SEMANTIC_ATTRIBUTE_SENTRY_SOURCE,
 } from '@sentry/core';
-import { SENTRY_TRACE_LIFECYCLE } from '@sentry/conventions/attributes';
+import { SENTRY_TRACE_LIFECYCLE, URL_FULL, URL_PATH } from '@sentry/conventions/attributes';
 import { sentryTest } from '../../../../utils/fixtures';
 import { shouldSkipTracingTest } from '../../../../utils/helpers';
 import { getSpanOp, getSpansFromEnvelope, waitForStreamedSpanEnvelope } from '../../../../utils/spanUtils';
@@ -81,11 +81,11 @@ sentryTest(
           type: 'string',
           value: expect.any(String),
         },
-        'url.full': {
+        [URL_FULL]: {
           type: 'string',
           value: expect.any(String),
         },
-        'url.path': {
+        [URL_PATH]: {
           type: 'string',
           value: expect.any(String),
         },
