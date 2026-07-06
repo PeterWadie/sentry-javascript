@@ -1,4 +1,38 @@
-/**
+/** Shared, state-free helpers for the Vercel AI (`ai`) channel subscribers, plus the streamed model-call tap. */
+
+/** Narrow to a string, or `undefined` for anything else. */
+export function asString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+/** Narrow to a finite number, or `undefined` for anything else (including `NaN`). */
+export function asNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && !isNaN(value) ? value : undefined;
+}
+
+/** Add two optional numbers, treating a missing operand as `0` but returning `undefined` when both are absent. */
+export function sum(a: number | undefined, b: number | undefined): number | undefined {
+  return a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0);
+}
+
+/** Narrow to a non-null object (records and arrays alike). */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Stringify a value, passing strings through and falling back to a placeholder on circular/unserializable input. */
+export function safeStringify(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '[unserializable]';
+  }
+}
+
+/*
  * Streaming support for the `ai:telemetry` tracing channel.
  *
  * For a streamed model call (`doStream`) the SDK resolves the `languageModelCall` channel promise as
@@ -13,7 +47,6 @@
  * consumption is unaffected) while accumulating the data we need, then hand the aggregate back once the
  * stream settles so the model-call span can be enriched and ended out-of-band.
  */
-import { isRecord } from './vercel-ai-utils';
 
 /** The subset of a streamed provider chunk we read. Unknown chunk types are forwarded and ignored. */
 interface StreamChunk {
@@ -45,8 +78,7 @@ export interface StreamedModelCallResult {
 /** A minimal structural check — the streamed model call exposes a web `ReadableStream` on `result.stream`. */
 export function isReadableStream(value: unknown): value is ReadableStream<unknown> {
   return (
-    typeof value === 'object' &&
-    value !== null &&
+    isRecord(value) &&
     typeof (value as { pipeThrough?: unknown }).pipeThrough === 'function' &&
     typeof (value as { getReader?: unknown }).getReader === 'function'
   );

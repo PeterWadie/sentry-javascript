@@ -12,7 +12,7 @@ import {
   type VercelAiChannelOptions,
   type VercelAiTracingChannelFactory,
 } from './vercel-ai-dc-subscriber';
-import { asString, isRecord } from './vercel-ai-utils';
+import { asString, isRecord } from './util';
 
 /**
  * v6 channel adapter for the Vercel AI (`ai`) SDK.

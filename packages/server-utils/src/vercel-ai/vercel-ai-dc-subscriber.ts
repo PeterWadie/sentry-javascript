@@ -45,8 +45,16 @@ import {
 } from '@sentry/core';
 import type { TracingChannel } from 'node:diagnostics_channel';
 import { bindTracingChannelToSpan } from '../tracing-channel';
-import { isReadableStream, type StreamedModelCallResult, tapModelCallStream } from './vercel-ai-stream';
-import { asNumber, asString, isRecord, safeStringify, sum } from './vercel-ai-utils';
+import {
+  asNumber,
+  asString,
+  isReadableStream,
+  isRecord,
+  safeStringify,
+  type StreamedModelCallResult,
+  sum,
+  tapModelCallStream,
+} from './util';
 
 /**
  * The single tracing channel the `ai` package (>= 7) publishes all telemetry lifecycle events to
