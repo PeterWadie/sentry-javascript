@@ -1,6 +1,7 @@
 import {
   channelIntegrations,
   detectOrchestrionSetup,
+  ioredisChannelIntegration,
 } from '@sentry/server-utils/orchestrion';
 import { registerDiagnosticsChannelInjection } from '@sentry/server-utils/orchestrion/register';
 import { cacheResponseHook } from '../integrations/tracing/redis/cache';
