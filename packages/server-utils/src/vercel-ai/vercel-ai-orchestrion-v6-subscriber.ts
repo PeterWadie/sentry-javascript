@@ -12,6 +12,7 @@ import {
   type VercelAiChannelOptions,
   type VercelAiTracingChannelFactory,
 } from './vercel-ai-dc-subscriber';
+import { asString, isRecord } from './vercel-ai-utils';
 
 /**
  * v6 channel adapter for the Vercel AI (`ai`) SDK.
@@ -431,12 +432,4 @@ function modelFields(model: unknown): { provider?: string; modelId?: string } {
 
 function modelField(model: unknown, field: 'modelId' | 'provider'): string | undefined {
   return isRecord(model) ? asString(model[field]) : undefined;
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

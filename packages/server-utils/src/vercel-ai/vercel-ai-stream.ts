@@ -13,6 +13,7 @@
  * consumption is unaffected) while accumulating the data we need, then hand the aggregate back once the
  * stream settles so the model-call span can be enriched and ended out-of-band.
  */
+import { isRecord } from './vercel-ai-utils';
 
 /** The subset of a streamed provider chunk we read. Unknown chunk types are forwarded and ignored. */
 interface StreamChunk {
@@ -121,7 +122,7 @@ export function tapModelCallStream(
  * accumulate it (kept out of `state` until the end to avoid re-joining on every chunk).
  */
 function accumulateChunk(state: StreamedModelCallResult, chunk: unknown): string | undefined {
-  if (typeof chunk !== 'object' || chunk === null) {
+  if (!isRecord(chunk)) {
     return undefined;
   }
   const { type, delta, id, modelId, toolCallId, toolName, input, args, finishReason, usage, providerMetadata } =

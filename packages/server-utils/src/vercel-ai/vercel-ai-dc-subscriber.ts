@@ -46,6 +46,7 @@ import {
 import type { TracingChannel } from 'node:diagnostics_channel';
 import { bindTracingChannelToSpan } from '../tracing-channel';
 import { isReadableStream, type StreamedModelCallResult, tapModelCallStream } from './vercel-ai-stream';
+import { asNumber, asString, isRecord, safeStringify, sum } from './vercel-ai-utils';
 
 /**
  * The single tracing channel the `ai` package (>= 7) publishes all telemetry lifecycle events to
@@ -734,31 +735,4 @@ function buildInputMessageAttributes(
   }
 
   return attributes;
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && !isNaN(value) ? value : undefined;
-}
-
-function sum(a: number | undefined, b: number | undefined): number | undefined {
-  return a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function safeStringify(value: unknown): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return '[unserializable]';
-  }
 }
