@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import type { Span } from '@sentry/core';
 import { debug, getActiveSpan, SPAN_STATUS_ERROR, withActiveSpan } from '@sentry/core';
 import { DEBUG_BUILD } from '../debug-build';
@@ -233,8 +234,56 @@ function bindOperation(
         }
         messages.delete(data);
       },
+      // `streamText` returns synchronously, so its operation span would otherwise end before the stream
+      // drains — losing the aggregate usage/output. Defer the end and await the result's completion
+      // promises (`totalUsage`/`text`/…, which resolve on drain), mirroring how v7's channel defers the
+      // operation span on the SDK's total-usage promise.
+      deferSpanEnd: ({ data, end }) => deferStreamTextOperationEnd(data, end),
     },
   );
+}
+
+/**
+ * Keep a streamed `streamText` operation span open until the stream drains, then enrich it from the
+ * `StreamTextResult`'s completion promises (usage/output/finish reason) and end it. Returns `false` for
+ * anything that isn't a streamed `streamText` result, so the helper ends the span as usual.
+ */
+function deferStreamTextOperationEnd(
+  data: TracingChannelPayloadWithSpan<OrchestrionContext>,
+  end: (error?: unknown) => void,
+): boolean {
+  if (messages.get(data)?.type !== 'streamText' || 'error' in data || !isStreamingResult(data.result)) {
+    return false;
+  }
+
+  const streamResult = data.result;
+  void (async () => {
+    try {
+      const [usage, text, toolCalls, finishReason, response] = await Promise.all([
+        streamResult.totalUsage ?? streamResult.usage,
+        streamResult.text,
+        streamResult.toolCalls,
+        streamResult.finishReason,
+        streamResult.response,
+      ]);
+      // Feed the resolved values back through the shared enrichment: `beforeSpanEnd` reads `data.result`.
+      data.result = { usage, text, toolCalls, finishReason, response };
+      end();
+    } catch (error) {
+      end(error);
+    }
+  })();
+
+  return true;
+}
+
+/** A `StreamTextResult` exposes its aggregates as promises (`totalUsage`/`usage`); a settled result does not. */
+function isStreamingResult(result: unknown): result is Record<string, PromiseLike<unknown> | undefined> {
+  return isRecord(result) && (isThenable(result.totalUsage) || isThenable(result.usage));
+}
+
+function isThenable(value: unknown): boolean {
+  return isRecord(value) && typeof value.then === 'function';
 }
 
 /**

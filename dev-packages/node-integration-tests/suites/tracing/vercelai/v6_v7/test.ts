@@ -44,12 +44,6 @@ describe.each([
   // else, we use the OTel processor
   const expectedOrigin = usesChannels ? 'auto.vercelai.channel' : 'auto.vercelai.otel';
 
-  // Streamed model-call spans get usage/finish/output on every path. The parent invoke_agent span only
-  // gets the streamed aggregate where the operation span outlives the stream: the OTel path (v6, native
-  // spans) and the v7 channel (asyncEnd deferred on total usage). In v6 orchestrion the operation span
-  // ends synchronously when `streamText` returns, before the stream drains, so it can't be enriched.
-  const enrichesInvokeAgentForStream = !(version === '6' && isOrchestrionEnabled());
-
   // We only run this in ESM and CJS to verify full support
   // Other suites we only run in ESM to simplify the test setup
   createEsmAndCjsTests(
@@ -628,16 +622,14 @@ describe.each([
                   '[{"role":"assistant","parts":[{"type":"text","content":"Stream response!"}],"finish_reason":"stop"}]',
                 );
 
-                // The summed usage and output also land on the parent invoke_agent span, except where its
-                // span ends before the stream drains (see `enrichesInvokeAgentForStream`).
-                if (enrichesInvokeAgentForStream) {
-                  expect(invokeAgent.attributes?.[GEN_AI_USAGE_INPUT_TOKENS_ATTRIBUTE]?.value).toBe(10);
-                  expect(invokeAgent.attributes?.[GEN_AI_USAGE_OUTPUT_TOKENS_ATTRIBUTE]?.value).toBe(20);
-                  expect(invokeAgent.attributes?.[GEN_AI_USAGE_TOTAL_TOKENS_ATTRIBUTE]?.value).toBe(30);
-                  expect(invokeAgent.attributes?.[GEN_AI_OUTPUT_MESSAGES_ATTRIBUTE]?.value).toBe(
-                    '[{"role":"assistant","parts":[{"type":"text","content":"Stream response!"}],"finish_reason":"stop"}]',
-                  );
-                }
+                // The summed usage and output also land on the parent invoke_agent span, whose own
+                // channel result is otherwise undefined for a stream.
+                expect(invokeAgent.attributes?.[GEN_AI_USAGE_INPUT_TOKENS_ATTRIBUTE]?.value).toBe(10);
+                expect(invokeAgent.attributes?.[GEN_AI_USAGE_OUTPUT_TOKENS_ATTRIBUTE]?.value).toBe(20);
+                expect(invokeAgent.attributes?.[GEN_AI_USAGE_TOTAL_TOKENS_ATTRIBUTE]?.value).toBe(30);
+                expect(invokeAgent.attributes?.[GEN_AI_OUTPUT_MESSAGES_ATTRIBUTE]?.value).toBe(
+                  '[{"role":"assistant","parts":[{"type":"text","content":"Stream response!"}],"finish_reason":"stop"}]',
+                );
               },
             })
             .start()
@@ -672,11 +664,9 @@ describe.each([
                 expect(invokeAgent.status).toBe('ok');
                 expect(invokeAgent.attributes?.['vercel.ai.operationId']?.value).toBe('ai.streamText');
                 // Usage is summed across the two streamed model calls (10+15, 20+25, 30+40).
-                if (enrichesInvokeAgentForStream) {
-                  expect(invokeAgent.attributes?.[GEN_AI_USAGE_INPUT_TOKENS_ATTRIBUTE]?.value).toBe(25);
-                  expect(invokeAgent.attributes?.[GEN_AI_USAGE_OUTPUT_TOKENS_ATTRIBUTE]?.value).toBe(45);
-                  expect(invokeAgent.attributes?.[GEN_AI_USAGE_TOTAL_TOKENS_ATTRIBUTE]?.value).toBe(70);
-                }
+                expect(invokeAgent.attributes?.[GEN_AI_USAGE_INPUT_TOKENS_ATTRIBUTE]?.value).toBe(25);
+                expect(invokeAgent.attributes?.[GEN_AI_USAGE_OUTPUT_TOKENS_ATTRIBUTE]?.value).toBe(45);
+                expect(invokeAgent.attributes?.[GEN_AI_USAGE_TOTAL_TOKENS_ATTRIBUTE]?.value).toBe(70);
 
                 const generateContents = container.items.filter(
                   span => span.attributes?.['sentry.op']?.value === 'gen_ai.generate_content',
@@ -743,9 +733,7 @@ describe.each([
                 expect(invokeAgent).toBeDefined();
                 expect(invokeAgent.status).toBe('ok');
                 expect(invokeAgent.attributes?.['vercel.ai.operationId']?.value).toBe('ai.streamText');
-                if (enrichesInvokeAgentForStream) {
-                  expect(invokeAgent.attributes?.[GEN_AI_USAGE_TOTAL_TOKENS_ATTRIBUTE]?.value).toBe(30);
-                }
+                expect(invokeAgent.attributes?.[GEN_AI_USAGE_TOTAL_TOKENS_ATTRIBUTE]?.value).toBe(30);
 
                 const generateContent = container.items.find(
                   span => span.attributes?.['sentry.op']?.value === 'gen_ai.generate_content',
