@@ -398,6 +398,9 @@ export function updateNavigationSpan(
     if (isImprovement) {
       activeRootSpan.updateName(name);
       activeRootSpan.setAttribute(SEMANTIC_ATTRIBUTE_SENTRY_SOURCE, source);
+      if (source === 'route') {
+        activeRootSpan.setAttribute('url.template', name);
+      }
 
       // Only mark as finalized for non-wildcard route names (allows URL→route upgrades).
       if (!transactionNameHasWildcard(name) && source === 'route') {
@@ -997,6 +1000,9 @@ export function handleNavigation(opts: {
           // Update existing real span from wildcard to parameterized route name
           trackedNav.span.updateName(name);
           trackedNav.span.setAttribute(SEMANTIC_ATTRIBUTE_SENTRY_SOURCE, source as 'route' | 'url' | 'custom');
+          if (source === 'route') {
+            trackedNav.span.setAttribute('url.template', name);
+          }
           addNonEnumerableProperty(
             trackedNav.span as { __sentry_navigation_name_set__?: boolean },
             '__sentry_navigation_name_set__',
@@ -1032,6 +1038,7 @@ export function handleNavigation(opts: {
           [SEMANTIC_ATTRIBUTE_SENTRY_SOURCE]: source,
           [SEMANTIC_ATTRIBUTE_SENTRY_OP]: 'navigation',
           [SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN]: `auto.navigation.react.reactrouter${version ? `_v${version}` : ''}`,
+          ...(source === 'route' && { 'url.template': placeholderEntry.routeName }),
         },
       });
     } catch (e) {
@@ -1120,6 +1127,9 @@ function updatePageloadTransaction({
     if (activeRootSpan) {
       activeRootSpan.updateName(name);
       activeRootSpan.setAttribute(SEMANTIC_ATTRIBUTE_SENTRY_SOURCE, source);
+      if (source === 'route') {
+        activeRootSpan.setAttribute('url.template', name);
+      }
 
       // Patch span.end() to ensure we update the name one last time before the span is sent
       patchSpanEnd(activeRootSpan, location, routes, basename, 'pageload');
@@ -1216,6 +1226,9 @@ function tryUpdateSpanNameBeforeEnd(
     if (isImprovement && spanNotEnded) {
       span.updateName(name);
       span.setAttribute(SEMANTIC_ATTRIBUTE_SENTRY_SOURCE, source);
+      if (source === 'route') {
+        span.setAttribute('url.template', name);
+      }
     }
   } catch (error) {
     DEBUG_BUILD && debug.warn(`Error updating span details before ending: ${error}`);

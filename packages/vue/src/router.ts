@@ -94,6 +94,10 @@ export function instrumentVueRouter(
       transactionSource = 'route';
     }
 
+    if (transactionSource === 'route') {
+      attributes['url.template'] = spanName;
+    }
+
     getCurrentScope().setTransactionName(spanName);
 
     // Update the existing page load span with parametrized route information

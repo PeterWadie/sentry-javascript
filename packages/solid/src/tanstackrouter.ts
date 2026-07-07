@@ -60,6 +60,7 @@ export function tanstackRouterBrowserTracingIntegration<R extends AnyRouter>(
             [SEMANTIC_ATTRIBUTE_SENTRY_OP]: 'pageload',
             [SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN]: 'auto.pageload.solid.tanstack_router',
             [SEMANTIC_ATTRIBUTE_SENTRY_SOURCE]: routeMatch ? 'route' : 'url',
+            ...(routeMatch && { 'url.template': routeMatch.routeId }),
             ...routeMatchToParamSpanAttributes(routeMatch),
           },
         });
@@ -75,6 +76,7 @@ export function tanstackRouterBrowserTracingIntegration<R extends AnyRouter>(
           if (resolvedMatch && resolvedMatch.routeId !== routeMatch?.routeId) {
             pageloadSpan.updateName(resolvedMatch.routeId);
             pageloadSpan.setAttribute(SEMANTIC_ATTRIBUTE_SENTRY_SOURCE, 'route');
+            pageloadSpan.setAttribute('url.template', resolvedMatch.routeId);
             pageloadSpan.setAttributes(routeMatchToParamSpanAttributes(resolvedMatch));
           }
         });
@@ -94,6 +96,9 @@ export function tanstackRouterBrowserTracingIntegration<R extends AnyRouter>(
         ): void => {
           span.updateName(match ? match.routeId : fallbackName);
           span.setAttribute(SEMANTIC_ATTRIBUTE_SENTRY_SOURCE, match ? 'route' : 'url');
+          if (match) {
+            span.setAttribute('url.template', match.routeId);
+          }
           span.setAttributes(routeMatchToParamSpanAttributes(match));
         };
 
@@ -124,6 +129,7 @@ export function tanstackRouterBrowserTracingIntegration<R extends AnyRouter>(
               [SEMANTIC_ATTRIBUTE_SENTRY_OP]: 'navigation',
               [SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN]: 'auto.navigation.solid.tanstack_router',
               [SEMANTIC_ATTRIBUTE_SENTRY_SOURCE]: routeMatch ? 'route' : 'url',
+              ...(routeMatch && { 'url.template': routeMatch.routeId }),
               ...routeMatchToParamSpanAttributes(routeMatch),
             },
           });

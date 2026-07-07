@@ -68,6 +68,7 @@ export function reactRouterV3BrowserTracingIntegration(
                 [SEMANTIC_ATTRIBUTE_SENTRY_OP]: 'pageload',
                 [SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN]: 'auto.pageload.react.reactrouter_v3',
                 [SEMANTIC_ATTRIBUTE_SENTRY_SOURCE]: source,
+                ...(source === 'route' && { 'url.template': localName }),
               },
             });
           },
@@ -88,6 +89,7 @@ export function reactRouterV3BrowserTracingIntegration(
                     [SEMANTIC_ATTRIBUTE_SENTRY_OP]: 'navigation',
                     [SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN]: 'auto.navigation.react.reactrouter_v3',
                     [SEMANTIC_ATTRIBUTE_SENTRY_SOURCE]: source,
+                    ...(source === 'route' && { 'url.template': localName }),
                   },
                 });
               },

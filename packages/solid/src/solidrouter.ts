@@ -105,6 +105,7 @@ function withSentryRouterRoot(Root: Component<RouteSectionProps>): Component<Rou
         const parametrizedRoute = lastMatch.route.pattern || name;
         rootSpan.updateName(parametrizedRoute);
         rootSpan.setAttribute(SEMANTIC_ATTRIBUTE_SENTRY_SOURCE, 'route');
+        rootSpan.setAttribute('url.template', parametrizedRoute);
 
         const params = lastMatch.params;
         for (const [key, value] of Object.entries(params)) {
