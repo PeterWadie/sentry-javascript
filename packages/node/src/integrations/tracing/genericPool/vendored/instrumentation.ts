@@ -1,17 +1,6 @@
 /*
  * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
  *
  * NOTICE from the Sentry authors:
  * - Vendored from: https://github.com/open-telemetry/opentelemetry-js-contrib/tree/15ef7506553f631ea4181391e0c5725a56f0d082/packages/instrumentation-generic-pool
@@ -19,10 +8,15 @@
  * - Minor TypeScript strictness adjustments for this repository's compiler settings
  */
 
-import * as api from '@opentelemetry/api';
 import type { InstrumentationConfig } from '@opentelemetry/instrumentation';
 import { InstrumentationBase, InstrumentationNodeModuleDefinition, isWrapped } from '@opentelemetry/instrumentation';
-import { SDK_VERSION } from '@sentry/core';
+import {
+  SDK_VERSION,
+  SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN,
+  SPAN_STATUS_ERROR,
+  startSpan,
+  startSpanManual,
+} from '@sentry/core';
 import type * as genericPool from './generic-pool-types';
 
 const MODULE_NAME = 'generic-pool';
@@ -102,68 +96,65 @@ export class GenericPoolInstrumentation extends InstrumentationBase {
   }
 
   private _acquirePatcher(original: AcquireFn) {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const instrumentation = this;
     return function wrapped_acquire(this: genericPool.Pool<unknown>, ...args: unknown[]) {
-      const parent = api.context.active();
-      const span = instrumentation.tracer.startSpan('generic-pool.acquire', {}, parent);
-
-      return api.context.with(api.trace.setSpan(parent, span), () => {
-        return (original.call(this, ...args) as PromiseLike<unknown>).then(
-          (value: unknown) => {
-            span.end();
-            return value;
-          },
-          (err: unknown) => {
-            span.recordException(err as Error);
-            span.end();
-            throw err;
-          },
-        );
-      });
+      return startSpan(
+        {
+          name: 'generic-pool.acquire',
+          attributes: { [SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN]: 'auto.db.otel.generic_pool' },
+        },
+        () => {
+          return original.call(this, ...args) as PromiseLike<unknown>;
+        },
+      );
     };
   }
 
   private _poolWrapper(original: (this: unknown, ...args: unknown[]) => { acquire: AcquireFn }) {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const instrumentation = this;
+    const wrap = this._wrap.bind(this);
+    const acquireWithCallbacksPatcher = this._acquireWithCallbacksPatcher.bind(this);
     return function wrapped_pool(this: unknown, ...args: unknown[]) {
       const pool = original.apply(this, args);
-      instrumentation._wrap(pool, 'acquire', instrumentation._acquireWithCallbacksPatcher.bind(instrumentation));
+      wrap(pool, 'acquire', acquireWithCallbacksPatcher);
       return pool;
     };
   }
 
   private _acquireWithCallbacksPatcher(original: AcquireFn) {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const instrumentation = this;
+    const isDisabled = (): boolean => this._isDisabled;
     return function wrapped_acquire(
       this: genericPool.Pool<unknown>,
       cb: (err: unknown, client: unknown) => unknown,
       priority: number,
     ) {
       // only used for v2 - v2.3
-      if (instrumentation._isDisabled) {
+      if (isDisabled()) {
         return original.call(this, cb, priority);
       }
-      const parent = api.context.active();
-      const span = instrumentation.tracer.startSpan('generic-pool.acquire', {}, parent);
 
-      return api.context.with(api.trace.setSpan(parent, span), () => {
-        original.call(
-          this,
-          (err: unknown, client: unknown) => {
-            span.end();
-            // Not checking whether cb is a function because
-            // the original code doesn't do that either.
-            // The callback's return value is unused by generic-pool, so we don't return it.
-            if (cb) {
-              cb(err, client);
-            }
-          },
-          priority,
-        );
-      });
+      return startSpanManual(
+        {
+          name: 'generic-pool.acquire',
+          attributes: { [SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN]: 'auto.db.otel.generic_pool' },
+        },
+        span => {
+          original.call(
+            this,
+            (err: unknown, client: unknown) => {
+              if (err) {
+                span.setStatus({ code: SPAN_STATUS_ERROR, message: 'internal_error' });
+              }
+              span.end();
+              // Not checking whether cb is a function because
+              // the original code doesn't do that either.
+              // The callback's return value is unused by generic-pool, so we don't return it.
+              if (cb) {
+                cb(err, client);
+              }
+            },
+            priority,
+          );
+        },
+      );
     };
   }
 }

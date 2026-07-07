@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import {
   SDK_VERSION,
+  SEMANTIC_ATTRIBUTE_SENTRY_ENVIRONMENT,
   SEMANTIC_ATTRIBUTE_SENTRY_OP,
   SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN,
   SEMANTIC_ATTRIBUTE_SENTRY_SAMPLE_RATE,
@@ -11,6 +12,7 @@ import {
   SEMANTIC_ATTRIBUTE_SENTRY_SEGMENT_NAME,
   SEMANTIC_ATTRIBUTE_SENTRY_SOURCE,
 } from '@sentry/core';
+import { SENTRY_TRACE_LIFECYCLE } from '@sentry/conventions/attributes';
 import { sentryTest } from '../../../../utils/fixtures';
 import { shouldSkipTracingTest } from '../../../../utils/helpers';
 import { getSpanOp, getSpansFromEnvelope, waitForStreamedSpanEnvelope } from '../../../../utils/spanUtils';
@@ -158,6 +160,14 @@ sentryTest(
         'sentry.span.source': {
           type: 'string',
           value: 'url',
+        },
+        [SEMANTIC_ATTRIBUTE_SENTRY_ENVIRONMENT]: {
+          type: 'string',
+          value: 'production',
+        },
+        [SENTRY_TRACE_LIFECYCLE]: {
+          type: 'string',
+          value: 'stream',
         },
       },
       end_timestamp: expect.any(Number),

@@ -8,8 +8,8 @@ import {
   spanToJSON,
   stringMatchesSomePattern,
 } from '@sentry/core/browser';
-import type { FetchHint, XhrHint } from '@sentry-internal/browser-utils';
-import { getBodyString, getFetchRequestArgBody, SENTRY_XHR_DATA_KEY } from '@sentry-internal/browser-utils';
+import type { FetchHint, XhrHint } from '@sentry/browser-utils';
+import { getBodyString, getFetchRequestArgBody, SENTRY_XHR_DATA_KEY } from '@sentry/browser-utils';
 
 interface GraphQLClientOptions {
   endpoints: Array<string | RegExp>;
@@ -42,7 +42,7 @@ interface GraphQLOperation {
   operationName?: string;
 }
 
-const INTEGRATION_NAME = 'GraphQLClient';
+const INTEGRATION_NAME = 'GraphQLClient' as const;
 
 const _graphqlClientIntegration = ((options: GraphQLClientOptions) => {
   return {

@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import {
   SDK_VERSION,
+  SEMANTIC_ATTRIBUTE_SENTRY_ENVIRONMENT,
   SEMANTIC_ATTRIBUTE_SENTRY_IDLE_SPAN_FINISH_REASON,
   SEMANTIC_ATTRIBUTE_SENTRY_OP,
   SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN,
@@ -11,6 +12,7 @@ import {
   SEMANTIC_ATTRIBUTE_SENTRY_SEGMENT_NAME,
   SEMANTIC_ATTRIBUTE_SENTRY_SOURCE,
 } from '@sentry/core';
+import { SENTRY_TRACE_LIFECYCLE } from '@sentry/conventions/attributes';
 import { sentryTest } from '../../../../utils/fixtures';
 import { shouldSkipTracingTest } from '../../../../utils/helpers';
 import { getSpanOp, waitForStreamedSpan, waitForStreamedSpans } from '../../../../utils/spanUtils';
@@ -41,6 +43,10 @@ sentryTest('captures streamed interaction span tree. @firefox', async ({ browser
 
   expect(interactionSegmentSpan).toEqual({
     attributes: {
+      [SENTRY_TRACE_LIFECYCLE]: {
+        type: 'string',
+        value: 'stream',
+      },
       'culture.calendar': {
         type: 'string',
         value: expect.any(String),
@@ -101,6 +107,10 @@ sentryTest('captures streamed interaction span tree. @firefox', async ({ browser
         type: 'string',
         value: 'url',
       },
+      [SEMANTIC_ATTRIBUTE_SENTRY_ENVIRONMENT]: {
+        type: 'string',
+        value: 'production',
+      },
     },
     end_timestamp: expect.any(Number),
     is_segment: true,
@@ -117,6 +127,10 @@ sentryTest('captures streamed interaction span tree. @firefox', async ({ browser
   const interactionSpan = interactionSpanTree.find(span => getSpanOp(span) === 'ui.interaction.click');
   expect(interactionSpan).toEqual({
     attributes: {
+      [SENTRY_TRACE_LIFECYCLE]: {
+        type: 'string',
+        value: 'stream',
+      },
       [SEMANTIC_ATTRIBUTE_SENTRY_OP]: {
         type: 'string',
         value: 'ui.interaction.click',
@@ -140,6 +154,10 @@ sentryTest('captures streamed interaction span tree. @firefox', async ({ browser
       [SEMANTIC_ATTRIBUTE_SENTRY_SEGMENT_NAME]: {
         type: 'string',
         value: '/index.html',
+      },
+      [SEMANTIC_ATTRIBUTE_SENTRY_ENVIRONMENT]: {
+        type: 'string',
+        value: 'production',
       },
     },
     end_timestamp: expect.any(Number),

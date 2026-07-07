@@ -7,25 +7,12 @@ name: 'Dependabot auto-triage'
 #      individual fixes, one commit per vuln), via the /fix-security-vulnerability skill --ci mode.
 #      Two PRs total keeps CI cheap and keeps runtime fixes isolated from dev bumps.
 #
-# NOTE: the GitHub App used here (GITFLOW_APP_*) must be granted the "Dependabot alerts: read AND
-# write" repository permission — read to list alerts, write to dismiss the noise.
-#
-# SECURITY BACKSTOP: `develop` must have branch protection that blocks force-pushes (and direct
-# pushes) by this App. The fix jobs run an LLM with a write token; the tool allowlist scopes pushes
-# to `bot/dependabot-fixes-*`, but branch protection is the authoritative guard against a pushed
-# change to `develop`.
-#
 # Manual runs default to a safe dry-run (classify + preview what would be dismissed and which PRs
-# would open, all to the job summary — no writes). The (currently disabled) scheduled run is full.
-#
-# TEST PHASE: the daily `schedule` trigger is commented out below — only manual `workflow_dispatch`
-# runs are active for now. Re-enable the cron once the manual dry-run + full runs look good.
+# would open, all to the job summary — no writes). The scheduled run is always full.
 
 on:
-  # Disabled for the initial test phase — manual runs only (dry-run / dismiss-only / full).
-  # Re-enable once validated to get the daily automated run:
-  # schedule:
-  #   - cron: '0 0 * * *' # daily, midnight UTC (matches canary/clear-cache)
+  schedule:
+    - cron: '0 0 * * *' # daily, midnight UTC
   workflow_dispatch:
     inputs:
       mode:
@@ -71,7 +58,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.GITFLOW_APP_ID }}
+          client-id: ${{ vars.GITFLOW_APP_ID }}
           private-key: ${{ secrets.GITFLOW_APP_PRIVATE_KEY }}
 
       - name: Checkout develop
@@ -148,7 +135,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.GITFLOW_APP_ID }}
+          client-id: ${{ vars.GITFLOW_APP_ID }}
           private-key: ${{ secrets.GITFLOW_APP_PRIVATE_KEY }}
 
       - name: Checkout develop
@@ -171,7 +158,7 @@ jobs:
           git config user.email "${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
 
       - name: Open batched runtime fix PR via skill
-        uses: anthropics/claude-code-action@24492741e0ccfdef4c1d19da8e11e0f373d07494 # v1
+        uses: anthropics/claude-code-action@11ba60486e4aec9ddfeafcf4bb3f00b028ac2c16 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ steps.app-token.outputs.token }}
@@ -195,6 +182,21 @@ jobs:
           claude_args: |
             --max-turns 80 --allowedTools "Write,Bash(gh pr list *),Bash(gh pr create *),Bash(git checkout *),Bash(git pull *),Bash(git add *),Bash(git commit *),Bash(git push --force -u origin bot/dependabot-fixes-*),Bash(npx yarn-update-dependency@0.7.1 *),Bash(yarn dedupe-deps:check),Bash(yarn dedupe-deps:fix),Bash(yarn why *),Bash(npm view *)"
 
+      # Surface the skill's outcome so a no-PR run is never ambiguous. A missing file means the skill
+      # didn't report (errored / ran out of turns) — distinct from a reported "NOTHING TO FIX".
+      - name: Post runtime fix result to job summary
+        if: always()
+        run: |
+          if [ -f fix-result-runtime.md ]; then
+            cat fix-result-runtime.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## runtime fix run"
+              echo ""
+              echo "⚠️ No \`fix-result-runtime.md\` was produced — the skill did not report an outcome (likely an error or turn-limit). Check this job's log."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   fix-dev:
     name: Open dev fix PR
     needs: classify
@@ -208,7 +210,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.GITFLOW_APP_ID }}
+          client-id: ${{ vars.GITFLOW_APP_ID }}
           private-key: ${{ secrets.GITFLOW_APP_PRIVATE_KEY }}
 
       - name: Checkout develop
@@ -231,7 +233,7 @@ jobs:
           git config user.email "${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
 
       - name: Open batched dev fix PR via skill
-        uses: anthropics/claude-code-action@24492741e0ccfdef4c1d19da8e11e0f373d07494 # v1
+        uses: anthropics/claude-code-action@11ba60486e4aec9ddfeafcf4bb3f00b028ac2c16 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ steps.app-token.outputs.token }}
@@ -254,3 +256,16 @@ jobs:
             Do NOT use Bash redirection (> file).
           claude_args: |
             --max-turns 80 --allowedTools "Write,Bash(gh pr list *),Bash(gh pr create *),Bash(git checkout *),Bash(git pull *),Bash(git add *),Bash(git commit *),Bash(git push --force -u origin bot/dependabot-fixes-*),Bash(npx yarn-update-dependency@0.7.1 *),Bash(yarn dedupe-deps:check),Bash(yarn dedupe-deps:fix),Bash(yarn why *),Bash(npm view *)"
+
+      - name: Post dev fix result to job summary
+        if: always()
+        run: |
+          if [ -f fix-result-dev.md ]; then
+            cat fix-result-dev.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## dev fix run"
+              echo ""
+              echo "⚠️ No \`fix-result-dev.md\` was produced — the skill did not report an outcome (likely an error or turn-limit). Check this job's log."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

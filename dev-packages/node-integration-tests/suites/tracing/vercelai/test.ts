@@ -22,14 +22,15 @@ import {
   GEN_AI_USAGE_TOTAL_TOKENS_ATTRIBUTE,
 } from '../../../../../packages/core/src/tracing/ai/gen-ai-attributes';
 import { cleanupChildProcesses, createEsmAndCjsTests } from '../../../utils/runner';
+import { isOrchestrionEnabled } from '../../../utils';
 
-describe('Vercel AI integration', () => {
+describe.skipIf(isOrchestrionEnabled())('Vercel AI integration (v4)', () => {
   afterAll(() => {
     cleanupChildProcesses();
   });
 
   createEsmAndCjsTests(__dirname, 'scenario.mjs', 'instrument.mjs', (createRunner, test) => {
-    test('creates ai related spans with genAI recording disabled', async () => {
+    test('creates ai spans when dataCollection.genAi has inputs and outputs disabled', async () => {
       await createRunner()
         .expect({ transaction: { transaction: 'main' } })
         .expect({
@@ -142,7 +143,7 @@ describe('Vercel AI integration', () => {
   });
 
   createEsmAndCjsTests(__dirname, 'scenario.mjs', 'instrument-with-pii.mjs', (createRunner, test) => {
-    test('creates ai related spans with genAI recording enabled', async () => {
+    test('creates ai spans for dataCollection defaults', async () => {
       await createRunner()
         .expect({ transaction: { transaction: 'main' } })
         .expect({
@@ -446,7 +447,7 @@ describe('Vercel AI integration', () => {
   createEsmAndCjsTests(
     __dirname,
     'scenario-message-truncation.mjs',
-    'instrument-with-pii.mjs',
+    'instrument-with-truncation.mjs',
     (createRunner, test) => {
       test('truncates messages when they exceed byte limit', async () => {
         await createRunner()

@@ -37,6 +37,7 @@ describe('GraphQL/Apollo Tests', () => {
           await createTestRunner()
             .expect({ transaction: EXPECTED_START_SERVER_TRANSACTION })
             .expect({ transaction: EXPECTED_TRANSACTION })
+            .unordered()
             .start()
             .completed();
         });
@@ -72,6 +73,43 @@ describe('GraphQL/Apollo Tests', () => {
           await createTestRunner()
             .expect({ transaction: EXPECTED_START_SERVER_TRANSACTION })
             .expect({ transaction: EXPECTED_TRANSACTION })
+            .unordered()
+            .start()
+            .completed();
+        });
+      },
+      { copyPaths: ['apollo-server.mjs'] },
+    );
+  });
+
+  describe('redaction', () => {
+    const EXPECTED_TRANSACTION = {
+      transaction: 'Test Transaction (mutation)',
+      spans: expect.arrayContaining([
+        expect.objectContaining({
+          description: 'mutation',
+          status: 'ok',
+          origin: 'auto.graphql.otel.graphql',
+          data: expect.objectContaining({
+            'graphql.operation.type': 'mutation',
+            // The inline email literal must be redacted to `"*"`, so the raw value can never reach `graphql.source`.
+            'graphql.source': expect.stringContaining('login(email: "*")'),
+            'sentry.origin': 'auto.graphql.otel.graphql',
+          }),
+        }),
+      ]),
+    };
+
+    createEsmAndCjsTests(
+      __dirname,
+      'scenario-redaction.mjs',
+      'instrument.mjs',
+      (createTestRunner, test) => {
+        test('redacts inline literal values from graphql.source.', async () => {
+          await createTestRunner()
+            .expect({ transaction: EXPECTED_START_SERVER_TRANSACTION })
+            .expect({ transaction: EXPECTED_TRANSACTION })
+            .unordered()
             .start()
             .completed();
         });
@@ -107,6 +145,7 @@ describe('GraphQL/Apollo Tests', () => {
           await createTestRunner()
             .expect({ transaction: EXPECTED_START_SERVER_TRANSACTION })
             .expect({ transaction: EXPECTED_TRANSACTION })
+            .unordered()
             .start()
             .completed();
         });

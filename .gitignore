@@ -53,6 +53,7 @@ tmp.js
 packages/deno/build-types
 packages/deno/build-test
 packages/deno/lib.deno.d.ts
+dev-packages/deno-integration-tests/lib.deno.d.ts
 deno.lock
 
 # gatsby
@@ -78,6 +79,7 @@ noise.json
 fix-candidates-runtime.json
 fix-candidates-dev.json
 pr-body-*.md
+fix-result-*.md
 
 # Environment variables
 .env
