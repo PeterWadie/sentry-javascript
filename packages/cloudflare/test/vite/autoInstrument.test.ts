@@ -46,15 +46,15 @@ describe('sentryCloudflareAutoInstrumentPlugin', () => {
     expect(result.code).toContain('__SENTRY__.withSentry(');
   });
 
-  it('prepends the orchestrion bundler marker to the entry', () => {
+  it('prepends the orchestrion registration import to the entry', () => {
     const { transform: tx, entryPath } = createPlugin('main = "src/index.ts"');
 
     const code = 'export default { fetch() { return new Response("ok"); } };';
     const result = tx(code, entryPath);
-    expect(result.code).toContain('globalThis.__SENTRY_ORCHESTRION__.bundler = true;');
+    expect(result.code).toContain("import '@sentry/cloudflare/orchestrion';");
   });
 
-  it('prepends the marker even when the entry is already wrapped manually', () => {
+  it('prepends the registration import even when the entry is already wrapped manually', () => {
     const { transform: tx, entryPath } = createPlugin('main = "src/index.ts"');
 
     const code = [
@@ -63,7 +63,7 @@ describe('sentryCloudflareAutoInstrumentPlugin', () => {
     ].join('\n');
     const result = tx(code, entryPath);
     expect(result).toBeDefined();
-    expect(result.code).toContain('globalThis.__SENTRY_ORCHESTRION__.bundler = true;');
+    expect(result.code).toContain("import '@sentry/cloudflare/orchestrion';");
     expect(result.code).not.toContain('__SENTRY_DEFAULT_EXPORT__');
   });
 

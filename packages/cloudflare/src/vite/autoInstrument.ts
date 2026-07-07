@@ -26,14 +26,15 @@ function normalizePath(path: string): string {
 // `.html`, … — sharing the entry's basename must never be treated as the entry.
 const JS_EXTENSION_REGEX = /\.[cm]?[jt]sx?$/;
 
-// The orchestrion bundler marker is normally prepended to entry chunks in
-// `renderChunk`, which only runs at build time. Prepending it to the worker
-// entry here as well makes `vite dev` — where the channels are injected during
-// dep pre-bundling instead — register the channel subscribers too. Setting the
-// flag twice in a build is harmless.
-const ORCHESTRION_MARKER_BANNER =
-  'globalThis.__SENTRY_ORCHESTRION__ = (globalThis.__SENTRY_ORCHESTRION__ || {});\n' +
-  'globalThis.__SENTRY_ORCHESTRION__.bundler = true;\n';
+// Auto-instrumented workers never import `@sentry/cloudflare` in user code, so
+// the orchestrion plugin's registration-import injection — which keys off that
+// import — never fires for the entry, and the channel-subscriber integrations
+// would go unregistered. Prepend the registration module here so `Sentry.init`
+// (invoked by the injected `withSentry` wrapper) still picks them up. The
+// registration is idempotent, so importing it more than once is harmless. This
+// also covers `vite dev`, where the entry passes through this `transform` hook
+// even though `renderChunk` (the build-time marker injector) never runs.
+const ORCHESTRION_REGISTRATION_BANNER = "import '@sentry/cloudflare/orchestrion';\n";
 
 export function sentryCloudflareAutoInstrumentPlugin(
   pluginOptions: SentryCloudflareAutoInstrumentOptions = {},
@@ -105,7 +106,7 @@ export function sentryCloudflareAutoInstrumentPlugin(
         doClassNames,
         optionsFn,
         optionsImport,
-        prependBanner: ORCHESTRION_MARKER_BANNER,
+        prependBanner: ORCHESTRION_REGISTRATION_BANNER,
       });
 
       const wrappedDoClasses = result?.wrappedDoClasses ?? new Set<string>();
