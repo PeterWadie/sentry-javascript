@@ -8,11 +8,12 @@ import {
   clearOperationId,
   createSpanFromMessage,
   enrichSpanOnEnd,
+  streamedResultToChannelResult,
   type VercelAiChannelMessage,
   type VercelAiChannelOptions,
   type VercelAiTracingChannelFactory,
 } from './vercel-ai-dc-subscriber';
-import { asString, isRecord } from './util';
+import { asString, isReadableStream, isRecord, tapModelCallStream } from './util';
 
 /**
  * v6 channel adapter for the Vercel AI (`ai`) SDK.
@@ -380,13 +381,39 @@ function patchModelMethod(
 
     try {
       const result = Promise.resolve(original.apply(this, args));
-      // `doStream` resolves to `{ stream, ... }` before the stream is consumed; we end here (start/end
-      // bracket the call) to match the channel timing.
       return result.then(value => {
+        // A streamed model call resolves to `{ stream, ... }` before the stream is consumed, so its
+        // usage/finish/output only arrive as the stream drains. Tap it (same helper as the v7 path) and
+        // defer ending the span until then. The parent `invoke_agent` span has already ended
+        // synchronously (v6 `streamText` returns before consumption), so it can't be enriched from here.
+        if (method === 'doStream' && isRecord(value) && isReadableStream(value.stream)) {
+          value.stream = tapModelCallStream(
+            value.stream,
+            final => {
+              message.result = { ...value, ...streamedResultToChannelResult(final) };
+              enrichSpanOnEnd(span, message, options);
+              span.end();
+              clearStreamCallId();
+            },
+            error => {
+              span.setStatus({
+                code: SPAN_STATUS_ERROR,
+                message: error instanceof Error ? error.message : 'unknown_error',
+              });
+              span.end();
+              clearStreamCallId();
+            },
+          );
+
+          return value;
+        }
+        // `doGenerate` (and any non-stream result) settles with the full result; end here, start/end
+        // bracket the call to match the channel timing.
         message.result = value;
         enrichSpanOnEnd(span, message, options);
         span.end();
         clearStreamCallId();
+
         return value;
       }, failSpan);
     } catch (error) {

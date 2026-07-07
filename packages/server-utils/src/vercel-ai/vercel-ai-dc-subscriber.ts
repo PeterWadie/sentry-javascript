@@ -281,7 +281,7 @@ function deferStreamedModelCallEnd(
 }
 
 /** Map the tapped stream aggregate onto the `languageModelCall` result shape `enrichSpanOnEnd` reads. */
-function streamedResultToChannelResult(final: StreamedModelCallResult): Record<string, unknown> {
+export function streamedResultToChannelResult(final: StreamedModelCallResult): Record<string, unknown> {
   const content: Array<Record<string, unknown>> = [];
   if (final.text) {
     content.push({ type: 'text', text: final.text });
